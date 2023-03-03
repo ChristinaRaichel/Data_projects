@@ -10,4 +10,4 @@ Netflix's "Top 10" TV Shows and Films database(based on the weekly data of popul
 
 #3. Formatting twitter data and moving the formatted version to s3 bucket with airflow orchestration
 
-A twitter user's profile details from twitter are undergone ETL process using tweepy. The resulting data is moved to an s3 bucket using Airflow hosted on AWS ECS.
+A twitter user's profile details from twitter are undergone ETL process using tweepy. The resulting data is moved to an s3 bucket using Airflow hosted on an AWS EC2 instance (t3.medium).
