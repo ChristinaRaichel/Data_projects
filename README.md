@@ -9,4 +9,5 @@ The site 'books.toscrape.com' scraped for book name, price and ratings to provid
 Netflix's "Top 10" TV Shows and Films database(based on the weekly data of popular TV shows/films viewed by subscribers in a number of countries) is extracted into 3 pandas dataframes and stored to a postgresDB, 'mydb' located in the host.  
 
 #3. Formatting twitter data and moving the formatted version to s3 bucket with airflow orchestration
-A user's profile details from twitter(json) are undergone ETL process using tweepy. The resulting data is moved to an s3 bucket using an Airflow DAG.
+
+A twitter user's profile details from twitter are undergone ETL process using tweepy. The resulting data is moved to an s3 bucket using Airflow hosted on AWS ECS.
