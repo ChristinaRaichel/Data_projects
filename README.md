@@ -12,4 +12,4 @@ Netflix's "Top 10" TV Shows and Films database(based on the weekly data of popul
 
 A twitter user's profile details from twitter are undergone ETL process using tweepy. The resulting data is moved to an s3 bucket using Airflow hosted on an AWS EC2 instance (t3.medium).
 
-#4.Autonomous Taxi Reinforcement learning project
+#4. Autonomous Taxi Reinforcement learning project
