@@ -1,3 +1,8 @@
+*Data engineering project on AWS cloud*
+
+Description:
+The youtube dataset is  imported to the s3 buckets on AWS. The data stored in s3 buckets are moved through the Glue crawlers to create tables on athena. A lambda function for file format conversions (json to parq) and a legacy glue etl spark script (glue job for converting csv to parq) are carried out. The cleaned (parq) files are moved to the same s3 cleaned-bucket using glue crawler. A lambda trigger is added on to the lambda function to get it triggered everytime a json event happens. Moreover, a reporting layer is created from the cleaned-bucket using glue studio for quickly generating routine query data. Data visualisations are created on AWS Quicksight from the reporting layer data stored in s3 buckets. 
+
 For the quicksight insights created on the youtube data:
 https://us-east-1.quicksight.aws.amazon.com/sn/dashboards/c5f4106f-3ebc-467a-a5a4-73eabe7b7d9a
 
@@ -126,7 +131,7 @@ on a.category_id = b.id;"cleaned_raw_data"
  create analytics bucket, set it as target in glue studio--parq,snappy compression
  create db_analytics in athena, add it to target of glue stdio
  (create database db_youtube_analytics;)
- give a tabke name to create, add partition keys
+ give a table name to create, add partition keys
  give iam role
  
 10. Visualising using quicksight-std version
