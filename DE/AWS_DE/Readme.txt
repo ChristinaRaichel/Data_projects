@@ -1,4 +1,8 @@
+For the quicksight insights created on the youtube data:
+https://us-east-1.quicksight.aws.amazon.com/sn/dashboards/c5f4106f-3ebc-467a-a5a4-73eabe7b7d9a
 
+Dataset: youtube analysis data from kaggle
+https://www.kaggle.com/datasets/datasnaek/youtube-new
 
 1. create iam user and iam group in aws (Log in to aws n.virginia)
 create iam credentials, access and secret keys
@@ -96,6 +100,7 @@ run the job
 tackling error: unable to parse
 This occurs due to the data containing other speaking lang in file--chinese
 data should be converted to utf..but we filter out unnecessary data using the following lines in the code:
+
 
 
 predicate_pushdown = "reg in ('ca','gb','us')"
