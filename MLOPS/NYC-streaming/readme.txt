@@ -1,14 +1,17 @@
-Using AWS lambda and kinesis to create a streaming app
-App details: trip duration prediction (NYC Green taxi data)
-Model details : 
-Lambda function prepares features from a json input event, fetches the model from s3, and predicts the trip-duration using the model
-The lambda function is containerised using Docker and the image is registered on ECR registry
-Event data is put on to the ride_events kinesis data stream as json and the predictions are fetched by the ride_prediction kinesis data stream using get_record method in aws cli.
+Ride trip duration steaming app using AWS lambda and kinesis
+-------------------------------------------------------------
+
+App details: Trip duration prediction 
+Data: NYC Green trip data 2022 Jan, Feb
+Features used for training: PickUp location, DropOff Location, trip_distance,PU_DO (DictVectorizer used to map features to vectors)
+Model details : s3://mlflow-nyc-taxi-reg-exp/4/def558fd38f44d8e9c4fc632668d3a47/artifacts/model (RandomForestRegressor Implemented in python (params:max_depth-20, min_samples_leaf-10,n_estimators-100,random_state-0,rmse:6.101)), mlflow was used for experiment tracking.
+
+About the Project:
+The Lambda function ride_duration_prediction prepares features from a json input event, fetches the model from s3, and predicts the trip-duration using the model.  The lambda function is containerised using Docker and the image is published on ECR registry. Event data is put on to the ride_events kinesis data stream as json and the predictions are fetched by the ride_prediction kinesis data stream using get_record method in aws cli.
 
 
-
-steps:
-1) create iam role and set permissions: 
+Steps to create the streaming app:
+1) create IAM role and set permissions: 
 lambda-kinesis-role (role-name), select trusted entity-lambda, and awslambdakinesisexecutionrole
 
 2) Starting with lambda,to ensure output on an event test  
@@ -418,54 +421,19 @@ configure function-add environment variables-prediction_stream_name,run_id
 
 add trigger-kinesis-ride_events
 
-In terminal send event:
-
-aws kinesis put-record \
-.......
+In terminal send event
+(aws kinesis put-record .......)
 
 And view logs in lambda
 
-iam role
-add permission-attach policy
-s3-read,list permissions
-resources-bucket-give name
-object-b name, * for obj name
-get*
-list*
-del others
-read_permission_mlflow_models
-attach policy
-edit json
-get*
-list*
-remove unreqd parts
+Attach policy for reading s3 bucket to lambda-kinesis role
+(iam role-add permission-attach policy-s3-read,list permissions-resources-bucket-give bucket name to be read from -object-b name, * for obj name)
 
-test with event using lambda test
---------------
-config lambda
-edit basic settings
-256/512mb memory
-15s timeout
+test with event using test_docker.py
 
-test
+config lambda-edit basic settings-256/512mb memory-15s timeout
 
----------------
-aws kinesis put_record ....test not true
+Now, the real part..
 
-see logs
-
-take from stream as well using get_record
-
-
-
-
-output without jq
-
-248000 AAAAAAAAAAF7rj5bmRqVnDPUYYH7sZwdLqlAlY5Rzl/VDQ05EdIDzeSAXUC9PtDetRtHSrduOTHlIZLRDYUdeQaaP9jdGe662DHEGOggWQ0aae4fTnxc5yE/vhignV5yy97tuyAavteC2oM07Gbl3R20rUFW7qFE8Dl6RLU0V7FNgSensaZe4ZqjOVkc0VmN+bc9sGgXnnEyUx+XeisqNioYQ98EX3YQM+M0oQhJISfgk+E5bqkTrQ== RECORDS 2023-04-19T14:32:39.015000+05:30 eyJtb2RlbCI6ICJyaWRlX2R1cmF0aW9uX3ByZWRpY3Rpb25fbW9kZWwiLCAidmVyc2lvbiI6IDEyMywgInByZWRpY3Rpb24iOiB7InJpZGVfZHVyYXRpb24iOiAxOC4zMjE2MzM1NDEzNjY1MDYsICJyaWRlX2lkIjogMTIzfX0= 123 49639977474046591059533388308142184184728177234688344066 RECORDS 2023-04-19T14:33:39.324000+05:30 eyJtb2RlbCI6ICJyaWRlX2R1cmF0aW9uX3ByZWRpY3Rpb25fbW9kZWwiLCAidmVyc2lvbiI6IDEyMywgInByZWRpY3Rpb24iOiB7InJpZGVfZHVyYXRpb24iOiAxOC4zMjE2MzM1NDEzNjY1MDYsICJyaWRlX2lkIjogMTIzfX0= 123 49639977474046591059533388750627168050976678806657433602
-
-
-
-to_do
-decode kinesis get-record output
-
-
+Send event record through ride_events stream
+(aws kinesis put_record ....) and receive the predictions from ride_prediction stream online (aws kinesis get_record...)
