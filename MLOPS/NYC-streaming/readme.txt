@@ -1,4 +1,4 @@
-Ride trip duration steaming app using AWS lambda and kinesis
+Ride trip duration prediction steaming app using AWS lambda and kinesis
 -------------------------------------------------------------
 
 App details: Trip duration prediction 
