@@ -31,7 +31,7 @@ Approach:
 The buying history of a consumer is considered as a sentence and the products as its words.  A word2vec model is a simple neural network model with a single hidden layer. Its input is a text corpus and its output is a set of vectors: feature vectors that represent words in that corpus. The task of this model is to predict the nearby words for each and every word in a sentence. The Weights learned by the hidden layer of the model can be used as the word embeddings to find similar products for recommendation. 
 
 Project Stages:
-![stages][https://github.com/chris1234565/Data_projects/edit/main/RecommenderSystem/1.png]
+![stages][https://github.com/chris1234565/Data_projects/blob/main/RecommenderSystem/1.png]
 
 Model evaluation and discussion
 
