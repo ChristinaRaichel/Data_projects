@@ -33,7 +33,7 @@ The buying history of a consumer is considered as a sentence and the products as
 Project Stages:
 
 
-Model evaluation and discussion:
+Model evaluation and discussion
 
 The Model generated has a vocabulary of 3479 unique words and their vectors of size 100 each. The dimensions of the product embeddings were reduced from 100 to 2 by using the UMAP algorithm for visualisation and clear clusters of similar products were visible when plotted. (UMAP is used for dimension reduction based on manifold learning techniques and ideas from topological data analysis.)
 
