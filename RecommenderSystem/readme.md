@@ -37,7 +37,7 @@ Model evaluation and discussion
 
 The Model generated has a vocabulary of 3479 unique words and their vectors of size 100 each. The dimensions of the product embeddings were reduced from 100 to 2 by using the UMAP algorithm for visualisation and clear clusters of similar products were visible when plotted. (UMAP is used for dimension reduction based on manifold learning techniques and ideas from topological data analysis.)
 
-![visualization][https://github.com/chris1234565/Data_projects/edit/main/RecommenderSystem/2.png]
+![visualization][https://github.com/chris1234565/Data_projects/blob/main/RecommenderSystem/2.png]
 
 Inorder to learn about the model ranking quality, the test data was cleaned by removing the customers with less than 50 purchases. And then, the first 40 purchases of each resultant customer was used to predict the next 10 items purchased, which is already known in the test set. Out of the 10 recommended products, the relevant products were found out using set intersection of the recommended products and the overall relevant product list generated from the known next 10 products which were actually ordered. This was done by finding 5 most similar item vectors from the model for each product in the 10 actual ordered items. When evaluating the recommender system model offline, the following set of metrics were observed:
     • Precision: Measures the proportion of relevant recommendations out of all the recommended items. 
