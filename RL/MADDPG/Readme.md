@@ -2,7 +2,7 @@ This project contains the co-operative MADDPG environment implementation as prov
 
 The paper discusses the application of an actor-critic network for each agent in a multi-agent scenario, to reduce the variance developed by the agents and the non-stationarity of the environment. 
 
-The multiagent-particle-envs was used as the particle environment
+The multiagent-particle-envs was used as the multi-agent environment
 https://github.com/openai/multiagent-particle-envs
 
 
