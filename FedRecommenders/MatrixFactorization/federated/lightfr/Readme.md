@@ -1,3 +1,6 @@
+Implementation of LightFR federated algorithm based on the paper https://arxiv.org/abs/2206.11743
+
+
 EDA_data_processing.ipynb
 -Contains EDA, data cleaning codes and final data is converted to an np array (reduced_data_np)
 -Run EDA_data_processing.ipynb to generate reduced_data_np
