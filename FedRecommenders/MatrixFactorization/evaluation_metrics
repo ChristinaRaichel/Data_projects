@@ -1,0 +1,21 @@
+Communication overhead - model-1
+----------------------------------
+The overall communication cost of the servers given by:
+(2 × N × | Ws |) × T + N × | Ws |
+N is the size of the trained model in bytes
+| Ws | is the number of selected workers
+T is the total number of training rounds
+here,
+T = 10 
+N = 196096 bytes
+Ws=1272
+communication cost = 5.23 GB 
+
+
+HR: 0.84
+NDCG:0.82
+
+
+Privacy Metrics:
+Communication Overhead:
+Convergence Rate:
