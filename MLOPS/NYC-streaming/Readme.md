@@ -546,3 +546,14 @@ The Lambda function `ride_duration_prediction` prepares features from a JSON inp
       ```bash
       aws kinesis get_record ...
       ```
+
+Images from the Project Implementation:
+
+Data (Structure)
+![alt text](data.png)
+
+Kinesis event put record with input features
+![alt text](put-record.png)
+
+Kinesis event get record with predicted results
+![alt text](get-record.png)
