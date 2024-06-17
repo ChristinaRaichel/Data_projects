@@ -78,368 +78,471 @@ The Lambda function `ride_duration_prediction` prepares features from a JSON inp
      ```
 
 
-4) check how kinesis stream put event format is by put_record-ing the basic test event from aws cli and reading the cloudwatch logs of aws lambda function 
-
-function code (with edits):
-import json
-
-def prepare_features(ride):
-    features= {}
-    features['PU_DO'] = '%s_%s' % (ride["PULocationID"],ride["DOLocationID"])
-    features['trip_distance'] = ride["trip_distance"]
-    return features
 
 
-def predict(features):
-    return 10.0
-    
+4. **Check Kinesis Stream Event Format:**
+    - Check the format of Kinesis stream events by putting a basic test event using AWS CLI and reading the CloudWatch logs of the AWS Lambda function.
 
-def lambda_handler(event, context):
-    #ride = event['ride']
-    #ride_id = event['ride_id']
-    #features = prepare_features(ride)
-    #predictions = predict(features)
-    
-    print(json.dumps(event))
-    predictions = 10.0 
-    
-    return {
-        'ride_duration': predictions,
-        'ride_id': ride_id
+    **Function Code (with edits):**
+    ```python
+    import json
+
+    def prepare_features(ride):
+        features = {}
+        features['PU_DO'] = '%s_%s' % (ride["PULocationID"], ride["DOLocationID"])
+        features['trip_distance'] = ride["trip_distance"]
+        return features
+
+    def predict(features):
+        return 10.0
+
+    def lambda_handler(event, context):
+        #ride = event['ride']
+        #ride_id = event['ride_id']
+        #features = prepare_features(ride)
+        #predictions = predict(features)
+        
+        print(json.dumps(event))
+        predictions = 10.0 
+        
+        return {
+            'ride_duration': predictions,
+            'ride_id': ride_id
+        }
+    ```
+
+    **Steps:**
+    - Create Kinesis stream `ride_events` (data stream, provisioned mode, 1 shard).
+    - At Lambda, add a trigger for Kinesis stream `ride_events`.
+    - Configure AWS CLI for IAM user with access keys and secret key (output format=text).
+    - Create a test event and send it through the terminal:
+
+    ```bash
+    aws kinesis put-record \
+        --stream-name ride_events \
+        --partition-key 1 \
+        --data "Hi test 1" \
+        --cli-binary-format raw-in-base64-out
+    ```
+
+    - In AWS terminal, obtain the shard details.
+    - Lambda will consume this from streams, and it will be reflected in the logs.
+    - Check Lambda monitor logs in CloudWatch for the event structure.
+
+    **Obtained Event Structure:**
+    ```json
+    {
+        "Records": [
+            {
+                "kinesis": {
+                    "kinesisSchemaVersion": "1.0",
+                    "partitionKey": "1",
+                    "sequenceNumber": "49639854210870046278837730611666112709822541697829044226",
+                    "data": "SGkgdGVzdCAx",
+                    "approximateArrivalTimestamp": 1681551089.843
+                },
+                "eventSource": "aws:kinesis",
+                "eventVersion": "1.0",
+                "eventID": "shardId-000000000000:49639854210870046278837730611666112709822541697829044226",
+                "eventName": "aws:kinesis:record",
+                "invokeIdentityArn": "arn:aws:iam::938316853267:role/lambda-kinesis-role",
+                "awsRegion": "us-east-1",
+                "eventSourceARN": "arn:aws:kinesis:us-east-1:938316853267:stream/ride_events"
+            }
+        ]
+    }
+    ```
+
+    **To Decode the Event Data Using Base64, Modify the Lambda Function:**
+
+    **Function Code:**
+    ```python
+    import base64
+
+    def lambda_handler(event, context):
+        for record in event['Records']:
+            encoded_data = record['kinesis']['data']
+            decoded_data = base64.b64decode(encoded_data).decode('utf-8')
+            print(decoded_data)
+    ```
+
+    - Now, edit the test, create a new test, and paste the event with encoded text to check if it gives the decoded output.
+
+5. **Deploy and Test Sending Ride Record:**
+
+    - At AWS CLI:
+
+    ```bash
+    aws kinesis put-record \
+        --stream-name ride_events \
+        --partition-key 1 \
+        --cli-binary-format raw-in-base64-out \
+        --data '{
+      "ride": {
+        "PULocationID": 130,
+        "DOLocationID": 205,
+        "trip_distance": 3.66
+      },
+      "ride_id": 123
+    }'
+    ```
+
+    **Event Config from AWS Lambda Log:**
+    ```json
+    {
+        "Records": [
+            {
+                "kinesis": {
+                    "kinesisSchemaVersion": "1.0",
+                    "partitionKey": "1",
+                    "sequenceNumber": "49639854210870046278837730620094743524175848591505489922",
+                    "data": "ewogICJyaWRlIjogewogICAgIlBVTG9jYXRpb25JRCI6IDEzMCwKICAgICJET0xvY2F0aW9uSUQiOiAyMDUsCiAgICAidHJpcF9kaXN0YW5jZSI6IDMuNjYKICB9LAogICJyaWRlX2lkIjogMTIzCn0K",
+                    "approximateArrivalTimestamp": 1681552724.5
+                },
+                "eventSource": "aws:kinesis",
+                "eventVersion": "1.0",
+                "eventID": "shardId-000000000000:49639854210870046278837730620094743524175848591505489922",
+                "eventName": "aws:kinesis:record",
+                "invokeIdentityArn": "arn:aws:iam::938316853267:role/lambda-kinesis-role",
+                "awsRegion": "us-east-1",
+                "eventSourceARN": "arn:aws:kinesis:us-east-1:938316853267:stream/ride_events"
+            }
+        ]
+    }
+    ```
+
+    - Now decode the ride data with the Lambda function.
+
+
+
+
+6. **Creating the Kinesis Stream to Consume the Prediction Outputs**
+
+    - Create the stream `ride_prediction`.
+
+    **Modified Lambda Function:**
+    ```python
+    import boto3
+    import json
+    import os
+
+    kinesis_client = boto3.client('kinesis')
+    prediction_events = []
+    PREDICTIONS_STREAM_NAME = os.getenv('PREDICTIONS_STREAM_NAME', 'ride_prediction')
+
+    def lambda_handler(event, context):
+        # Process event and make prediction
+        ride_id = event['ride_id']
+        prediction_event = {
+            'ride_id': ride_id,
+            'prediction': 10.0  # This should be replaced with actual prediction logic
+        }
+        
+        kinesis_client.put_record(
+            StreamName=PREDICTIONS_STREAM_NAME,
+            Data=json.dumps(prediction_event),
+            PartitionKey=str(ride_id)
+        )
+    ```
+
+    - Attach a policy to `lambda-kinesis` role to provide `putRecord` permission to Lambda:
+      - Create a policy in IAM with permission for Kinesis service action `write-putrecord` on the stream ARN for `ride_predictions`.
+
+    **To Get Records from `ride_prediction` Stream at AWS CLI:**
+
+    ```bash
+    export KINESIS_STREAM_OUTPUT='ride_prediction'
+    export SHARD='shardId-000000000000'
+    export SHARD_ITERATOR=$(aws kinesis \
+        get-shard-iterator \
+        --shard-id ${SHARD} \
+        --shard-iterator-type TRIM_HORIZON \
+        --stream-name ${KINESIS_STREAM_OUTPUT} \
+        --query 'ShardIterator'
+    )
+
+    echo $SHARD_ITERATOR
+
+    export RESULT=$(aws kinesis get-records --shard-iterator $SHARD_ITERATOR --output json)
+
+    echo $RESULT
+
+    # To install jq (JSON processor)
+    apt-get install jq
+
+    # Decode and parse the data
+    echo ${RESULT} | jq -r '.Records[0].Data' | base64 --decode | jq
+    ```
+
+7. **Adding Model to Lambda Function**
+
+    - Edit the Lambda function locally to add model details.
+
+    **Lambda Function Code:**
+    ```python
+    import boto3
+    import json
+    import os
+    import mlflow
+
+    kinesis_client = boto3.client('kinesis')
+    PREDICTIONS_STREAM_NAME = os.getenv('PREDICTIONS_STREAM_NAME', 'ride_prediction')
+    TEST_RUN = os.getenv('TEST_RUN', 'False') == 'True'
+
+    # Load your model
+    model = mlflow.pyfunc.load_model('path_to_your_model')
+
+    def lambda_handler(event, context):
+        for record in event['Records']:
+            encoded_data = record['kinesis']['data']
+            decoded_data = base64.b64decode(encoded_data).decode('utf-8')
+            ride = json.loads(decoded_data)
+
+            ride_id = ride['ride_id']
+            features = prepare_features(ride['ride'])
+            pred = model.predict(features)
+            prediction_event = {
+                'ride_id': ride_id,
+                'prediction': float(pred[0])
+            }
+            
+            if not TEST_RUN:
+                kinesis_client.put_record(
+                    StreamName=PREDICTIONS_STREAM_NAME,
+                    Data=json.dumps(prediction_event),
+                    PartitionKey=str(ride_id)
+                )
+
+    def prepare_features(ride):
+        features = {}
+        features['PU_DO'] = '%s_%s' % (ride["PULocationID"], ride["DOLocationID"])
+        features['trip_distance'] = ride["trip_distance"]
+        return features
+    ```
+
+    - Create `test.py` to test the Lambda function locally.
+
+    **test.py:**
+    ```python
+    import lambda_function
+
+    event = {
+        "Records": [
+            {
+                "kinesis": {
+                    "kinesisSchemaVersion": "1.0",
+                    "partitionKey": "1",
+                    "sequenceNumber": "49639854210870046278837730620094743524175848591505489922",
+                    "data": "ewogICJyaWRlIjogewogICAgIlBVTG9jYXRpb25JRCI6IDEzMCwKICAgICJET0xvY2F0aW9uSUQiOiAyMDUsCiAgICAidHJpcF9kaXN0YW5jZSI6IDMuNjYKICB9LAogICJyaWRlX2lkIjogMTIzCn0K",
+                    "approximateArrivalTimestamp": 1681552724.5
+                },
+                "eventSource": "aws:kinesis",
+                "eventVersion": "1.0",
+                "eventID": "shardId-000000000000:49639854210870046278837730620094743524175848591505489922",
+                "eventName": "aws:kinesis:record",
+                "invokeIdentityArn": "arn:aws:iam::938316853267:role/lambda-kinesis-role",
+                "awsRegion": "us-east-1",
+                "eventSourceARN": "arn:aws:kinesis:us-east-1:938316853267:stream/ride_events"
+            }
+        ]
     }
 
-Steps to do:
-Create kinesis stream ride_events (-data stream,-prov mode, 1 shard)
-At lambda, add trigger -kinesis stream - ride_events
-configure aws cli for iam user with access keys and secret key-output format=text
-create test event and send through terminal(PutRecord returns the shard ID of where the data record was placed and the sequence number that was assigned to the data record.
-Writes a single data record into an Amazon Kinesis data stream)
+    result = lambda_function.lambda_handler(event, None)
+    print(result)
+    ```
 
-format:
-aws kinesis put-record \
-	--stream-name ride_events \
-	--partition-key 1 \
-	--data "Hi test 1"
-	--cli-binary-format raw-in-base64-out
-	
-In aws terminal, obtain the shard details 
-Lambda will consume this from streams and it will be reflected in the logs.
-Check lambda monitor- logs in cloudwatch for event structure
+    - In the terminal:
+    ```bash
+    cd to_folder_containing_lambda_function
+    pipenv shell
+    python3 test.py
+    ```
 
-Obtained event structure:
+    **To run the test with environment variables:**
+    ```bash
+    export PREDICTIONS_STREAM_NAME='ride_prediction'
+    export RUN_ID='def558fd38f44d8e9c4fc632668d3a47'
+    export TEST_RUN="True"
 
-{
-    "Records": [
-         {
-            "kinesis": {
-                "kinesisSchemaVersion": "1.0",
-                "partitionKey": "1",
-                "sequenceNumber": "49639854210870046278837730611666112709822541697829044226",
-                "data": "SGkgdGVzdCAx",
-                "approximateArrivalTimestamp": 1681551089.843
-            },
-            "eventSource": "aws:kinesis",
-            "eventVersion": "1.0",
-            "eventID": "shardId-000000000000:49639854210870046278837730611666112709822541697829044226",
-            "eventName": "aws:kinesis:record",
-            "invokeIdentityArn": "arn:aws:iam::938316853267:role/lambda-kinesis-role",
-            "awsRegion": "us-east-1",
-            "eventSourceARN": "arn:aws:kinesis:us-east-1:938316853267:stream/ride_events"
-        }
+    python3 test.py
+    ```
+
+
+
+### 8. Packaging to a Docker Container
+
+1. **Install Required Packages:**
+
+    ```bash
+    pipenv install boto3 mlflow scikit-learn --python=3.9
+    ```
+
+2. **Create Dockerfile:**
+
+    Search for 'aws ecr registry' and find the lambda python 3.9 image tag. Use this image tag in the Dockerfile.
+
+    **Dockerfile:**
+    ```Dockerfile
+    FROM public.ecr.aws/lambda/python:3.9
+
+    RUN pip install -U pip
+    RUN pip install pipenv
+
+    COPY ["Pipfile", "Pipfile.lock", "./"]
+
+    RUN pipenv install --system --deploy
+
+    COPY ["lambda_function", "./"]
+    CMD ["lambda_function.lambda_handler"]
+    ```
+
+3. **Build and Run the Docker Image:**
+
+    - Navigate to the folder containing `lambda_function`, `Dockerfile`, `Pipfile`, etc.
     
-    ]
-}
+    - Build the Docker image:
+      ```bash
+      docker build -t stream-model-duration:v1 .
+      ```
+
+    - Run the Docker container:
+      ```bash
+      docker run -it --rm \
+          -p 8080:8080 \
+          -e PREDICTIONS_STREAM_NAME="ride_prediction" \
+          -e RUN_ID='def558fd38f44d8e9c4fc632668d3a47' \
+          -e TEST_RUN="True" \
+          -e AWS_ACCESS_KEY_ID="**********************" \
+          -e AWS_SECRET_ACCESS_KEY="**************************" \
+          -e AWS_DEFAULT_REGION="us-east-1" \
+          stream-model-duration:v1
+      ```
+
+4. **Create Requests to Test Docker Image:**
+
+    **test_docker.py:**
+    ```python
+    import requests
+
+    event = {
+        "Records": [
+            {
+                "kinesis": {
+                    "kinesisSchemaVersion": "1.0",
+                    "partitionKey": "1",
+                    "sequenceNumber": "49639854210870046278837730620094743524175848591505489922",
+                    "data": "ewogICJyaWRlIjogewogICAgIlBVTG9jYXRpb25JRCI6IDEzMCwKICAgICJET0xvY2F0aW9uSUQiOiAyMDUsCiAgICAidHJpcF9kaXN0YW5jZSI6IDMuNjYKICB9LAogICJyaWRlX2lkIjogMTIzCn0K",
+                    "approximateArrivalTimestamp": 1681552724.5
+                },
+                "eventSource": "aws:kinesis",
+                "eventVersion": "1.0",
+                "eventID": "shardId-000000000000:49639854210870046278837730620094743524175848591505489922",
+                "eventName": "aws:kinesis:record",
+                "invokeIdentityArn": "arn:aws:iam::938316853267:role/lambda-kinesis-role",
+                "awsRegion": "us-east-1",
+                "eventSourceARN": "arn:aws:kinesis:us-east-1:938316853267:stream/ride_events"
+            }
+        ]
+    }
+
+    url = 'http://localhost:8080/2015-03-31/functions/function/invocations'
+    response = requests.post(url, json=event)
+    print(response.json())
+    ```
+
+    - Run the test:
+      ```bash
+      cd to_folder_containing_lambda_function
+      pipenv shell
+      python3 test_docker.py
+      ```
+
+5. **Useful Docker and Pipenv Commands:**
+
+    ```bash
+    # Docker commands
+    docker ps
+    docker kill <container_id>
+    docker image rm stream-model-duration:v1
+
+    # Pipenv commands
+    pipenv --rm
+    rm Pipfile.lock
+    pipenv install
+    ```
+
+    Reference: [Aripalo Blog on AWS Lambda Container Image Support](https://aripalo.com/blog/2020/aws-lambda-container-image-support/)
+
+### 9. Publish to ECR (Docker Registry)
+
+1. **Create ECR Repository:**
+
+    ```bash
+    aws ecr create-repository --repository-name duration-pred-model
+    ```
+
+    - Get the repository URI from the command output:
+      `<user>.dkr.ecr.<region>.amazonaws.com/duration-pred-model`
+
+2. **Authenticate Docker with ECR:**
+
+    ```bash
+    aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <user>.dkr.ecr.<region>.amazonaws.com/
+    ```
+
+3. **Tag and Push Docker Image:**
+
+    ```bash
+    export REMOTE_URI="<user>.dkr.ecr.<region>.amazonaws.com/duration-pred-model"
+    export REMOTE_TAG='v1'
+    export REMOTE_IMAGE=${REMOTE_URI}:${REMOTE_TAG}
+    export LOCAL_IMAGE="stream-model-duration:v1"
+
+    docker tag ${LOCAL_IMAGE} ${REMOTE_IMAGE}
+    docker push ${REMOTE_IMAGE}
+
+    echo $REMOTE_IMAGE
+    # Output: <user>.dkr.ecr.<region>.amazonaws.com/duration-pred-model:v1
+    ```
 
+4. **Use This Image to Create the New AWS Lambda Function**
 
-To decode the event data using base64 modify lambda function :
+### 10. Updating the AWS Lambda Function
 
-function code:
+1. **Create a New Function Using the Container Image:**
 
-import base64
+    - Use the container image URI.
+    - Provide the Lambda Kinesis role.
 
-for record in event['Records']:
-	encoded_data = record['kinesis']['data']
-	decoded_data = base64.b64decode(encoded_data).decode('utf-8')
-	print(decoded_data)
+2. **Configure the Function:**
 
+    - Add environment variables: `PREDICTIONS_STREAM_NAME`, `RUN_ID`.
+    - Add trigger: Kinesis - `ride_events`.
 
+3. **Send Event and View Logs:**
 
-Now, edit the test, create a new test and paste the event with encoded text to check if it gives the decoded output
+    - Send event through the terminal:
+      ```bash
+      aws kinesis put-record ...
+      ```
+    - View logs in Lambda.
 
+4. **Attach Policy for Reading S3 Bucket to Lambda-Kinesis Role:**
 
-5)Deploy and test sending ride record
+    - IAM role: Add permission to attach policy for S3 read and list permissions.
+    - Resources: Specify the bucket name to be read from (`object-b name, *` for object name).
 
-At aws cli:
+5. **Test with Event Using `test_docker.py`:**
 
-aws kinesis put-record \
-	--stream-name ride_events \
-	--partition-key 1 \
-	--cli-binary-format raw-in-base64-out \
-	--data '{
-  "ride": {
-    "PULocationID": 130,
-    "DOLocationID": 205,
-    "trip_distance": 3.66
-  },
-  "ride_id": 123
-}
-'
+    - Configure Lambda: Edit basic settings (256/512MB memory, 15s timeout).
 
+6. **Send Event Record Through `ride_events` Stream:**
 
-Event config from AWS lambda log: 
-
-
-{
-    "Records": [
-        {
-            "kinesis": {
-                "kinesisSchemaVersion": "1.0",
-                "partitionKey": "1",
-                "sequenceNumber": "49639854210870046278837730620094743524175848591505489922",
-                "data": "ewogICJyaWRlIjogewogICAgIlBVTG9jYXRpb25JRCI6IDEzMCwKICAgICJET0xvY2F0aW9uSUQiOiAyMDUsCiAgICAidHJpcF9kaXN0YW5jZSI6IDMuNjYKICB9LAogICJyaWRlX2lkIjogMTIzCn0K",
-                "approximateArrivalTimestamp": 1681552724.5
-            },
-            "eventSource": "aws:kinesis",
-            "eventVersion": "1.0",
-            "eventID": "shardId-000000000000:49639854210870046278837730620094743524175848591505489922",
-            "eventName": "aws:kinesis:record",
-            "invokeIdentityArn": "arn:aws:iam::938316853267:role/lambda-kinesis-role",
-            "awsRegion": "us-east-1",
-            "eventSourceARN": "arn:aws:kinesis:us-east-1:938316853267:stream/ride_events"
-        }
-    ]
-}
-
-Now decode the ride data with lambda function
-
-6) Creating the kinesis stream to consume the prediction outputs
-
-Create the stream - ride_prediction
-
-Modified lambda function:
-
-import boto3
-kinesis_client = boto3.client('kinesis')
-prediction_events=[]
-PREDICTIONS_STREAM_NAME = os.getenv('PREDICTIONS_STREAM_NAME','ride_prediction')
-
-lambda_handler():
-.
-.
-.
-.
-kinesis_client.put_record(
-	StreamName=PREDICTIONS_STREAM_NAME,
-	Data : json.dumps(prediction_event),
-	PartitionKey: str(ride_id)
-)
-
-
-Attach a policy to lambda-kinesis role to provide putRecord permission to lambda
-(iam-permission-attach policy-create policy-kinesis service-action write-putrecord/s-resource stream arn-....ride_predictions)
-
-
-To get_records from ride_prediction stream, at AWS cli:
-
-export KINESIS_STREAM_OUTPUT='ride_prediction'
-export SHARD='shardId-000000000000'
-export SHARD_ITERATOR=$(aws kinesis \
-	get-shard-iterator \
-	--shard-id ${SHARD} \
-	--shard-iterator-type TRIM_HORIZON \
-	--stream-name ${KINESIS_STREAM_OUTPUT} \
-	--query 'ShardIterator'
-	)
-
-echo $SHARD_ITERATOR
-
-export RESULT=$(aws kinesis get-records --shard-iterator $SHARD_ITERATOR --output json)
-
-echo $RESULT
-
-(apt-get install jq   # to pick json objects )
-
-echo ${RESULT} | jq -r '.Records[0].Data' | base64 --decode |jq
-
-
-7) Adding model to lambda function
-
-Edit the lambda function locally, adding model details
-
-code:
-
-import mlflow
-.
-.
-.
-.
-model = ...(logged_model)
-TEST_RUN = os.getenv('TEST_RUN', 'False')  == 'True'
-
-pred= model.predict(features) 
-return float(pred[0])
-
-
-if not TEST_RUN:
-	kinesis.client_put....
-
-create test.py
-
-import lambda_function
-event = {
-    "Records": [
-        {
-            "kinesis": {
-                "kinesisSchemaVersion": "1.0",
-                "partitionKey": "1",
-                "sequenceNumber": "49639854210870046278837730620094743524175848591505489922",
-                "data": "ewogICJyaWRlIjogewogICAgIlBVTG9jYXRpb25JRCI6IDEzMCwKICAgICJET0xvY2F0aW9uSUQiOiAyMDUsCiAgICAidHJpcF9kaXN0YW5jZSI6IDMuNjYKICB9LAogICJyaWRlX2lkIjogMTIzCn0K",
-                "approximateArrivalTimestamp": 1681552724.5
-            },
-            "eventSource": "aws:kinesis",
-            "eventVersion": "1.0",
-            "eventID": "shardId-000000000000:49639854210870046278837730620094743524175848591505489922",
-            "eventName": "aws:kinesis:record",
-            "invokeIdentityArn": "arn:aws:iam::938316853267:role/lambda-kinesis-role",
-            "awsRegion": "us-east-1",
-            "eventSourceARN": "arn:aws:kinesis:us-east-1:938316853267:stream/ride_events"
-        }
-    ]
-}
-
-result = lambda_function.lambda_handler(event,None)
-print(result)
-
-
-
-in the terminal:
-cd to folder containing lambda_function
-pipenv shell
-python3 test_lambda_function.py
-
-
-
-'''
-export PREDICTIONS_STREAM_NAME='ride_prediction'
-export RUN_ID='def558fd38f44d8e9c4fc632668d3a47' 
-export TEST_RUN="True"
-
-python3 test_.py
-
-
-'''
-
-7) Packaging to a docker container
-
-pipenv install boto3 mlflow scikit-learn --python=3.9
-
-Create Dockerfile- copy image tag from  search  'aws ecr registry'  -lambda py-image tags-3.9 copy image)
-
-Dockerfile:
-
-FROM public.ecr.aws/lambda/python:3.9
-
-RUN pip install -U pip
-RUN pip install pipenv
-
-RUN pip install -U pip
-RUN pip install pipenv
-
-COPY ["Pipfile", "Pipfile.lock", "./"]
-
-RUN pipenv install --system --deploy
-
-copy ["lambda_function", "./"]
-CMD ["lambda_function.lambda_handler"]
-
-
-cd to folder containing lambda_function, Dockerfile, Pipfile,..
-
-build the docker:
-docker build -t stream-model-duration:v1 .
-
-run docker:
-docker run -it --rm \
-	-p 8080:8080 \
-	-e PREDICTIONS_STREAM_NAME="ride_prediction" \
-	-e RUN_ID='def558fd38f44d8e9c4fc632668d3a47' \
-	-e TEST_RUN="True" \
-	-e AWS_ACCESS_KEY_ID="**********************" \
-	-e AWS_SECRET_ACCESS_KEY="**************************" \
-	-e AWS_DEFAULT_REGION="us-east-1" \
-	stream-model-duration:v1
-
-create requests (test_docker.py) and test to check if docker image is working
-
-test_docker:
-
-import requests
-.
-.
-.
-url=  'http://localhost:8080/2015-03-31/functions/function/invocations'
-response = request.post(url, json=event)
-print(response.json())
-#http post method
-
-
-cd to folder containing lambda_function, Dockerfile, Pipfile,..
-python3 test_docker
-
-docker and pipenv commands:
-docker ps
-docker kill cid
-docker image rm stream-model-duration:v1 
-
-pipenv --rm
-rm Pipfile.lock
-pipenv install
-
-reference: https://aripalo.com/blog/2020/aws-lambda-container-image-support/
-
-
-8) Publish to ecr (docker registry)
-aws cli:
-aws ecr create-repository --repository-name duration-pred-model
-(get repository uri from command output)
-<user>.dkr.ecr.<region>.amazonaws.com/duration-pred-model
-
-Now, authenticate docker with ecr:
-aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <user>.dkr.ecr.<region>.amazonaws.com/
-
-export REMOTE_URI="<user>.dkr.ecr.<region>.amazonaws.com/duration-pred-model"
-export REMOTE_TAG='v1'
-export REMOTE_IMAGE=${REMOTE_URI}:${REMOTE_TAG}
-export LOCAL_IMAGE="stream-model-duration:v1"
-
-docker tag ${LOCAL_IMAGE} ${REMOTE_IMAGE}
-docker push ${REMOTE_IMAGE}
-
-echo $REMOTE_IMAGE
-<user>.dkr.ecr.<region>.amazonaws.com/duration-pred-model:v1
-Use this image to create the new aws lambda function
-
-9) AWS lambda (new function) remove the older one
-
-create new function using container image-ride_duration_prediction-give container image uri-provide lambda kinesis role 
-
-configure function-add environment variables-prediction_stream_name,run_id
-
-add trigger-kinesis-ride_events
-
-In terminal send event
-(aws kinesis put-record .......)
-
-And view logs in lambda
-
-Attach policy for reading s3 bucket to lambda-kinesis role
-(iam role-add permission-attach policy-s3-read,list permissions-resources-bucket-give bucket name to be read from -object-b name, * for obj name)
-
-test with event using test_docker.py
-
-config lambda-edit basic settings-256/512mb memory-15s timeout
-
-Now, the real part..
-
-Send event record through ride_events stream
-(aws kinesis put_record ....) and receive the predictions from ride_prediction stream online (aws kinesis get_record...)
+    - Send event:
+      ```bash
+      aws kinesis put_record ...
+      ```
+    - Receive the predictions from `ride_prediction` stream online:
+      ```bash
+      aws kinesis get_record ...
+      ```
