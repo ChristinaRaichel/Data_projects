@@ -1,52 +1,21 @@
-Ride trip duration prediction steaming app using AWS lambda and kinesis
------------------------------------------------------------------------
 
-App details: Trip duration prediction 
-Data: NYC Green trip data 2022 Jan, Feb
-Features used for training: PickUp location, DropOff Location, trip_distance,PU_DO (DictVectorizer used to map features to vectors)
-Model details : s3://mlflow-nyc-taxi-reg-exp/4/def558fd38f44d8e9c4fc632668d3a47/artifacts/model (RandomForestRegressor Implemented in python (params:max_depth-20, min_samples_leaf-10,n_estimators-100,random_state-0,rmse:6.101)), mlflow was used for experiment tracking.
+### 3) Improve Lambda Function
 
-About the Project:
-The Lambda function ride_duration_prediction prepares features from a json input event, fetches the model from s3, and predicts the trip-duration using the model.  The lambda function is containerised using Docker and the image is published on ECR registry. Event data is put on to the ride_events kinesis data stream as json and the predictions are fetched by the ride_prediction kinesis data stream using get_record method in aws cli.
+Add `prepare_features` and `predict_features` functions and configure a test event with a basic ride event (JSON).
 
+#### Function Code
 
-Steps to create the streaming app:
-1) create IAM role and set permissions: 
-lambda-kinesis-role (role-name), select trusted entity-lambda, and awslambdakinesisexecutionrole
-
-2) Starting with lambda,to ensure output on an event test  
-create a test lambda function with lambda_handler, and test it  with readily available event configuration:
-ride-duration-prediction-function, py 3.9,lambda-kinesis-role
-
-function code-
-
+```python
 import json
-#event is a dictionary,if lambda is connected to an endpoint then
- event can be any requests comng to this endpoint
-
-def lambda_handler(event, context):
-    # TODO implement
-    print (json.dumps(event))
-    return {
-        'statusCode': 200,
-        'body': json.dumps('Hello from Lambda!')
-    }
- 3) Improve lambda function by adding prepare_features and sample predict_features functions and configure test event with a basic ride event(json)
-
-function code:
-
-function-import json
 
 def prepare_features(ride):
-    features= {}
-    features['PU_DO'] = '%s_%s' % (ride["PULocationID"],ride["DOLocationID"])
+    features = {}
+    features['PU_DO'] = '%s_%s' % (ride["PULocationID"], ride["DOLocationID"])
     features['trip_distance'] = ride["trip_distance"]
     return features
 
-
 def predict(features):
     return 10.0
-    
 
 def lambda_handler(event, context):
     ride = event['ride']
@@ -58,11 +27,8 @@ def lambda_handler(event, context):
         'ride_duration': predictions,
         'ride_id': ride_id
     }
-    
-    
-    
-    event test data:
 
+Event Test Data
 {
   "ride": {
     "PULocationID": 130,
@@ -72,35 +38,36 @@ def lambda_handler(event, context):
   "ride_id": 123
 }
 
-4) check how kinesis stream put event format is by put_record-ing the basic test event from aws cli and reading the cloudwatch logs of aws lambda function 
+###4) Check Kinesis Stream Put Event Format
 
-function code (with edits):
+Use put_record from AWS CLI to send the basic test event and read the CloudWatch logs of the AWS Lambda function.
+Function Code (with edits)
+
 import json
 
 def prepare_features(ride):
-    features= {}
-    features['PU_DO'] = '%s_%s' % (ride["PULocationID"],ride["DOLocationID"])
+    features = {}
+    features['PU_DO'] = '%s_%s' % (ride["PULocationID"], ride["DOLocationID"])
     features['trip_distance'] = ride["trip_distance"]
     return features
 
-
 def predict(features):
     return 10.0
-    
 
 def lambda_handler(event, context):
-    #ride = event['ride']
-    #ride_id = event['ride_id']
-    #features = prepare_features(ride)
-    #predictions = predict(features)
+    # ride = event['ride']
+    # ride_id = event['ride_id']
+    # features = prepare_features(ride)
+    # predictions = predict(features)
     
     print(json.dumps(event))
-    predictions = 10.0 
+    predictions = 10.0
     
     return {
         'ride_duration': predictions,
         'ride_id': ride_id
     }
+
 
 Steps to do:
 Create kinesis stream ride_events (-data stream,-prov mode, 1 shard)
